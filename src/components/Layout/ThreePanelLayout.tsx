@@ -53,10 +53,10 @@ export default function ThreePanelLayout() {
 
   // 最大化されたパネルがあるかチェック
   const hasMaximizedPanel = Object.values(panelStates).some(state => state.maximized)
-  const maximizedPanel = Object.entries(panelStates).find(([_, state]) => state.maximized)?.[0] as PanelType
+  const maximizedPanel = Object.entries(panelStates).find(([, state]) => state.maximized)?.[0] as PanelType
 
-  // 表示されているパネルの数を計算
-  const visiblePanels = Object.values(panelStates).filter(state => state.visible).length
+  // 表示されているパネルの数を計算（将来使用予定）
+  // const visiblePanels = Object.values(panelStates).filter(state => state.visible).length
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
@@ -166,19 +166,19 @@ export default function ThreePanelLayout() {
   )
 }
 
-// 表示パネル数に応じたグリッドレイアウトを決定
-function getGridLayout(visibleCount: number): string {
-  switch (visibleCount) {
-    case 1:
-      return 'grid-cols-1'
-    case 2:
-      return 'grid-cols-1 lg:grid-cols-2'
-    case 3:
-      return 'grid-cols-1 lg:grid-cols-2 xl:grid-cols-3'
-    default:
-      return 'grid-cols-1'
-  }
-}
+// 表示パネル数に応じたグリッドレイアウトを決定（将来使用予定）
+// function getGridLayout(visibleCount: number): string {
+//   switch (visibleCount) {
+//     case 1:
+//       return 'grid-cols-1'
+//     case 2:
+//       return 'grid-cols-1 lg:grid-cols-2'
+//     case 3:
+//       return 'grid-cols-1 lg:grid-cols-2 xl:grid-cols-3'
+//     default:
+//       return 'grid-cols-1'
+//   }
+// }
 
 // 上部パネル（Notion風・MIRO風）のグリッドレイアウトを決定
 function getTopPanelsGridLayout(): string {
