@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import type { TensionStructureChart } from '@/types'
 
@@ -29,6 +29,11 @@ export default function ThreePanelLayout() {
     miro: { visible: true, maximized: false },
     'ai-chat': { visible: true, maximized: false }
   })
+
+  // リサイズ用の幅管理 (fr単位)
+  const [panelWidths, setPanelWidths] = useState({ notion: 2, miro: 2, ai: 1 })
+  const [isResizing, setIsResizing] = useState('')
+  const containerRef = useRef<HTMLDivElement>(null)
 
   // チャートデータ管理
   const [charts, setCharts] = useState<TensionStructureChart[]>([])
@@ -99,30 +104,172 @@ export default function ThreePanelLayout() {
     })
   }
 
-  // 最大化されたパネルがあるかチェック
-  const hasMaximizedPanel = Object.values(panelStates).some(state => state.maximized)
-  const maximizedPanel = Object.entries(panelStates).find(([, state]) => state.maximized)?.[0] as PanelType
-
-  // 表示中のパネルを配列で取得
+  // 表示中のパネルを取得
   const visiblePanels = Object.entries(panelStates)
     .filter(([, state]) => state.visible)
     .map(([panelType]) => panelType as PanelType)
 
+  // リサイズハンドラー（動的に判断）
+  const handleResize = useCallback((boundary: string) => (e: React.MouseEvent) => {
+    e.preventDefault()
+    setIsResizing(boundary)
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (!containerRef.current) return
+
+      const container = containerRef.current
+      const rect = container.getBoundingClientRect()
+      const x = moveEvent.clientX - rect.left
+      const containerWidth = rect.width
+      const percentage = (x / containerWidth) * 100
+
+      // 境界に応じて処理を分岐
+      if (boundary === 'notion-miro' && panelStates.notion.visible && panelStates.miro.visible) {
+        // Notion-MIRO間のリサイズ
+        const minSize = 20
+        const maxSize = 70
+        
+        if (percentage >= minSize && percentage <= maxSize) {
+          const notionPercent = percentage
+          const remainingPercent = 100 - notionPercent
+          
+          if (panelStates['ai-chat'].visible) {
+            // 3パネル表示時
+            const aiPercent = 20 // AI部分は20%固定
+            const miroPercent = remainingPercent - aiPercent
+            
+            if (miroPercent >= minSize) {
+              setPanelWidths(prev => ({
+                ...prev,
+                notion: (notionPercent / 100) * 5,
+                miro: (miroPercent / 100) * 5,
+                ai: (aiPercent / 100) * 5
+              }))
+            }
+          } else {
+            // 2パネル表示時（Notion + MIRO）
+            const miroPercent = remainingPercent
+            if (miroPercent >= minSize) {
+              setPanelWidths(prev => ({
+                ...prev,
+                notion: (notionPercent / 100) * 5,
+                miro: (miroPercent / 100) * 5
+              }))
+            }
+          }
+        }
+      } else if (boundary === 'miro-ai' && panelStates.miro.visible && panelStates['ai-chat'].visible) {
+        // MIRO-AI間のリサイズ
+        const notionWidth = panelStates.notion.visible ? (panelWidths.notion / (panelWidths.notion + panelWidths.miro + panelWidths.ai)) * 100 : 0
+        const availablePercent = 100 - notionWidth
+        const boundaryPercent = percentage - notionWidth
+        
+        const minSize = 15
+        const miroPercent = (boundaryPercent / availablePercent) * 100
+        const aiPercent = ((availablePercent - boundaryPercent) / availablePercent) * 100
+        
+        if (miroPercent >= minSize && aiPercent >= minSize) {
+          setPanelWidths(prev => ({
+            ...prev,
+            miro: (miroPercent / 100) * 3,
+            ai: (aiPercent / 100) * 3
+          }))
+        }
+      } else if (boundary === 'notion-ai' && panelStates.notion.visible && panelStates['ai-chat'].visible && !panelStates.miro.visible) {
+        // Notion-AI間のリサイズ（MIROが非表示の場合）
+        const minSize = 20
+        const maxSize = 70
+        
+        if (percentage >= minSize && percentage <= maxSize) {
+          const notionPercent = percentage
+          const aiPercent = 100 - notionPercent
+          
+          if (aiPercent >= minSize) {
+            setPanelWidths(prev => ({
+              ...prev,
+              notion: (notionPercent / 100) * 5,
+              ai: (aiPercent / 100) * 5
+            }))
+          }
+        }
+      }
+    }
+
+    const handleMouseUp = () => {
+      setIsResizing('')
+      document.body.style.cursor = 'auto'
+      document.body.style.userSelect = 'auto'
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+  }, [panelStates, panelWidths])
+
+  // 最大化されたパネルがあるかチェック
+  const hasMaximizedPanel = Object.values(panelStates).some(state => state.maximized)
+  const maximizedPanel = Object.entries(panelStates).find(([, state]) => state.maximized)?.[0] as PanelType
+
+  // CSS Grid template columns を動的生成（改良版）
+  const getGridTemplate = () => {
+    const elements = []
+    
+    if (panelStates.notion.visible) {
+      elements.push(`${panelWidths.notion}fr`)
+    }
+    
+    if (panelStates.miro.visible) {
+      if (elements.length > 0) elements.push('4px') // 境界線
+      elements.push(`${panelWidths.miro}fr`)
+    }
+    
+    if (panelStates['ai-chat'].visible) {
+      if (elements.length > 0) elements.push('4px') // 境界線
+      elements.push(`${panelWidths.ai}fr`)
+    }
+    
+    return elements.join(' ')
+  }
+
+  // 境界線が必要かどうかを判定する関数
+  const needsBoundary = (leftPanel: PanelType, rightPanel: PanelType) => {
+    return panelStates[leftPanel].visible && panelStates[rightPanel].visible
+  }
+
+  // 境界線の種類を判定する関数
+  const getBoundaryType = () => {
+    if (panelStates.notion.visible && panelStates.miro.visible && panelStates['ai-chat'].visible) {
+      return 'all-three' // 3パネル全表示
+    } else if (panelStates.notion.visible && panelStates.miro.visible) {
+      return 'notion-miro' // Notion + MIRO
+    } else if (panelStates.miro.visible && panelStates['ai-chat'].visible) {
+      return 'miro-ai' // MIRO + AI
+    } else if (panelStates.notion.visible && panelStates['ai-chat'].visible) {
+      return 'notion-ai' // Notion + AI
+    }
+    return 'none'
+  }
+
+  const boundaryType = getBoundaryType()
+
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="h-screen flex flex-col bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* ヘッダー - パネル制御 */}
-      <header className="bg-white border-b border-gray-200 p-4">
+      <header className="bg-gradient-to-r from-slate-800 to-slate-700 border-b border-slate-600 p-4 shadow-lg backdrop-blur-sm">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-800">緊張構造チャート管理アプリ</h1>
+          <h1 className="text-xl font-bold text-white drop-shadow-sm">緊張構造チャート管理アプリ</h1>
           
           <div className="flex gap-2">
             {/* パネル表示切り替えボタン */}
             <button
               onClick={() => toggleVisibility('notion')}
-              className={`flex items-center gap-1 px-3 py-1 rounded text-sm transition-colors ${
+              className={`flex items-center gap-1 px-3 py-1 rounded-lg text-sm transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 ${
                 panelStates.notion.visible 
-                  ? 'bg-blue-100 text-blue-700' 
-                  : 'bg-gray-100 text-gray-500'
+                  ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-blue-500/30' 
+                  : 'bg-slate-600 text-slate-300 hover:bg-slate-500'
               }`}
             >
               {panelStates.notion.visible ? '👁️' : '🚫'}
@@ -131,10 +278,10 @@ export default function ThreePanelLayout() {
             
             <button
               onClick={() => toggleVisibility('miro')}
-              className={`flex items-center gap-1 px-3 py-1 rounded text-sm transition-colors ${
+              className={`flex items-center gap-1 px-3 py-1 rounded-lg text-sm transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 ${
                 panelStates.miro.visible 
-                  ? 'bg-green-100 text-green-700' 
-                  : 'bg-gray-100 text-gray-500'
+                  ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-emerald-500/30' 
+                  : 'bg-slate-600 text-slate-300 hover:bg-slate-500'
               }`}
             >
               {panelStates.miro.visible ? '👁️' : '🚫'}
@@ -143,19 +290,21 @@ export default function ThreePanelLayout() {
             
             <button
               onClick={() => toggleVisibility('ai-chat')}
-              className={`flex items-center gap-1 px-3 py-1 rounded text-sm transition-colors ${
+              className={`flex items-center gap-1 px-3 py-1 rounded-lg text-sm transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 ${
                 panelStates['ai-chat'].visible 
-                  ? 'bg-purple-100 text-purple-700' 
-                  : 'bg-gray-100 text-gray-500'
+                  ? 'bg-gradient-to-r from-violet-500 to-violet-600 text-white shadow-violet-500/30' 
+                  : 'bg-slate-600 text-slate-300 hover:bg-slate-500'
               }`}
             >
               {panelStates['ai-chat'].visible ? '👁️' : '🚫'}
               AIチャット
             </button>
             
-            {/* レイアウト情報表示 */}
-            <div className="text-xs text-gray-500 flex items-center ml-4">
-              🚨 FIXED: {visiblePanels.length}パネル | 実用的なサイズに修正
+            {/* リサイズ情報表示 */}
+            <div className="text-xs text-slate-300 flex items-center ml-4 font-mono">
+              🔧 {visiblePanels.length}パネル | {boundaryType} | 
+              リサイズ: {panelWidths.notion.toFixed(1)} - {panelWidths.miro.toFixed(1)} - {panelWidths.ai.toFixed(1)}
+              {isResizing && <span className="text-cyan-400 font-bold ml-2 animate-pulse">📏 {isResizing}</span>}
             </div>
           </div>
         </div>
@@ -196,53 +345,91 @@ export default function ThreePanelLayout() {
           </div>
         ) : visiblePanels.length === 0 ? (
           // パネルが1つも表示されていない場合
-          <div className="h-full flex items-center justify-center text-gray-500">
-            <div className="text-center">
+          <div className="h-full flex items-center justify-center text-slate-400">
+            <div className="text-center bg-slate-800/50 backdrop-blur-sm p-8 rounded-2xl border border-slate-700 shadow-2xl">
               <div className="text-6xl mb-4">👁️</div>
-              <p className="text-lg mb-4">表示するパネルがありません</p>
-              <p className="text-sm">上部のボタンでパネルを表示してください</p>
+              <p className="text-lg mb-4 text-slate-200">表示するパネルがありません</p>
+              <p className="text-sm text-slate-400">上部のボタンでパネルを表示してください</p>
             </div>
           </div>
         ) : (
-          // 通常モード - シンプルなFlexboxレイアウト（リサイズなし）
-          <div className="h-full flex">
+          // 通常モード - CSS Grid リサイズ可能レイアウト
+          <div 
+            ref={containerRef}
+            className="h-full"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: getGridTemplate(),
+              gap: '0'
+            }}
+          >
             {/* Notion風パネル */}
             {panelStates.notion.visible && (
-              <div className="flex-1 min-w-0" style={{ flex: '2' }}>
-                <NotionPanel 
-                  onToggleMaximize={() => toggleMaximize('notion')}
-                  isMaximized={false}
-                  charts={charts}
-                  showEditor={showEditor}
-                  editingChart={editingChart}
-                  onNewChart={handleNewChart}
-                  onEditChart={handleEditChart}
-                  ChartEditor={ChartEditor}
-                  onSaveChart={handleSaveChart}
-                  onCancelEditor={handleCancelEditor}
-                />
-              </div>
+              <NotionPanel 
+                onToggleMaximize={() => toggleMaximize('notion')}
+                isMaximized={false}
+                charts={charts}
+                showEditor={showEditor}
+                editingChart={editingChart}
+                onNewChart={handleNewChart}
+                onEditChart={handleEditChart}
+                ChartEditor={ChartEditor}
+                onSaveChart={handleSaveChart}
+                onCancelEditor={handleCancelEditor}
+              />
+            )}
+            
+            {/* Notion-MIRO間の境界線 */}
+            {needsBoundary('notion', 'miro') && (
+              <div 
+                className={`bg-slate-600 hover:bg-gradient-to-r hover:from-blue-500 hover:to-emerald-500 cursor-col-resize transition-all duration-200 shadow-lg ${
+                  isResizing === 'notion-miro' ? 'bg-gradient-to-r from-blue-500 to-emerald-500 shadow-xl' : ''
+                }`}
+                onMouseDown={handleResize('notion-miro')}
+                style={{ width: '4px' }}
+                title="Notion-MIRO境界をドラッグしてリサイズ"
+              />
             )}
             
             {/* MIRO風パネル */}
             {panelStates.miro.visible && (
-              <div className="flex-1 min-w-0" style={{ flex: '2' }}>
-                <MiroPanel 
-                  onToggleMaximize={() => toggleMaximize('miro')}
-                  isMaximized={false}
-                  charts={charts}
-                />
-              </div>
+              <MiroPanel 
+                onToggleMaximize={() => toggleMaximize('miro')}
+                isMaximized={false}
+                charts={charts}
+              />
+            )}
+            
+            {/* MIRO-AI間の境界線 */}
+            {needsBoundary('miro', 'ai-chat') && (
+              <div 
+                className={`bg-slate-600 hover:bg-gradient-to-r hover:from-emerald-500 hover:to-violet-500 cursor-col-resize transition-all duration-200 shadow-lg ${
+                  isResizing === 'miro-ai' ? 'bg-gradient-to-r from-emerald-500 to-violet-500 shadow-xl' : ''
+                }`}
+                onMouseDown={handleResize('miro-ai')}
+                style={{ width: '4px' }}
+                title="MIRO-AI境界をドラッグしてリサイズ"
+              />
+            )}
+            
+            {/* Notion-AI間の境界線（MIROが非表示の場合） */}
+            {needsBoundary('notion', 'ai-chat') && !panelStates.miro.visible && (
+              <div 
+                className={`bg-slate-600 hover:bg-gradient-to-r hover:from-blue-500 hover:to-violet-500 cursor-col-resize transition-all duration-200 shadow-lg ${
+                  isResizing === 'notion-ai' ? 'bg-gradient-to-r from-blue-500 to-violet-500 shadow-xl' : ''
+                }`}
+                onMouseDown={handleResize('notion-ai')}
+                style={{ width: '4px' }}
+                title="Notion-AI境界をドラッグしてリサイズ"
+              />
             )}
             
             {/* AIチャットパネル */}
             {panelStates['ai-chat'].visible && (
-              <div className="flex-1 min-w-0" style={{ flex: '1' }}>
-                <AIChatPanel 
-                  onToggleMaximize={() => toggleMaximize('ai-chat')}
-                  isMaximized={false}
-                />
-              </div>
+              <AIChatPanel 
+                onToggleMaximize={() => toggleMaximize('ai-chat')}
+                isMaximized={false}
+              />
             )}
           </div>
         )}
@@ -250,6 +437,9 @@ export default function ThreePanelLayout() {
     </div>
   )
 }
+
+// 以下のコンポーネントは同じなので省略...
+// (NotionPanel, MiroPanel, AIChatPanel)
 
 // Notion風パネルコンポーネント
 interface NotionPanelProps {
@@ -289,9 +479,9 @@ function NotionPanel({
   }
 
   return (
-    <div className="h-full bg-white border border-gray-200 flex flex-col overflow-hidden">
-      <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-blue-50 flex-shrink-0">
-        <h2 className="font-semibold text-blue-800">📝 Notion風リスト</h2>
+    <div className="h-full bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-600 flex flex-col overflow-hidden shadow-2xl backdrop-blur-sm">
+      <div className="flex items-center justify-between p-3 border-b border-slate-600 bg-gradient-to-r from-blue-600 to-blue-700 flex-shrink-0 shadow-lg">
+        <h2 className="font-semibold text-white drop-shadow-sm">📝 Notion風リスト</h2>
         <div className="flex items-center gap-2">
           <button
             onClick={(e) => {
@@ -299,7 +489,7 @@ function NotionPanel({
               e.stopPropagation()
               onToggleMaximize()
             }}
-            className="p-1 hover:bg-blue-200 rounded transition-colors text-lg cursor-pointer"
+            className="p-1 hover:bg-blue-500/30 rounded-lg transition-all duration-200 text-lg cursor-pointer hover:scale-110 hover:shadow-lg"
             title={isMaximized ? "最小化" : "最大化"}
           >
             {isMaximized ? '🔽' : '🔼'}
@@ -307,7 +497,7 @@ function NotionPanel({
           {!showEditor && (
             <button
               onClick={onNewChart}
-              className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 transition-colors whitespace-nowrap"
+              className="px-3 py-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg text-sm hover:from-blue-400 hover:to-blue-500 transition-all duration-200 whitespace-nowrap shadow-md hover:shadow-lg hover:scale-105"
             >
               + 新規作成
             </button>
@@ -325,12 +515,12 @@ function NotionPanel({
         ) : (
           <div className="p-4">
             {charts.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-slate-300">
                 <div className="text-4xl mb-4">📝</div>
-                <p className="mb-4">まだチャートがありません</p>
+                <p className="mb-4 text-slate-200">まだチャートがありません</p>
                 <button
                   onClick={onNewChart}
-                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                  className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-400 hover:to-blue-500 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105"
                 >
                   最初のチャートを作成
                 </button>
@@ -338,25 +528,25 @@ function NotionPanel({
             ) : (
               <div className="space-y-3">
                 {charts.map((chart) => (
-                  <div key={chart.id} className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                  <div key={chart.id} className="p-3 bg-slate-700/50 backdrop-blur-sm rounded-xl hover:bg-slate-600/60 transition-all duration-200 border border-slate-600 shadow-lg hover:shadow-xl hover:scale-[1.02]">
                     <div className="flex items-start justify-between mb-2">
-                      <h3 className="font-medium text-gray-800 flex-1 min-w-0">🎯 {chart.title}</h3>
+                      <h3 className="font-medium text-white flex-1 min-w-0">🎯 {chart.title}</h3>
                       <button
                         onClick={() => onEditChart(chart)}
-                        className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors whitespace-nowrap ml-2"
+                        className="px-2 py-1 text-xs bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-400 hover:to-blue-500 transition-all duration-200 whitespace-nowrap ml-2 shadow-md hover:shadow-lg hover:scale-105"
                       >
                         編集
                       </button>
                     </div>
                     <div className="ml-4 space-y-2 text-sm">
-                      <div className="text-blue-600">
+                      <div className="text-blue-300">
                         💡 創り出したいもの: {chart.goal.content.slice(0, 50)}{chart.goal.content.length > 50 ? '...' : ''}
                       </div>
-                      <div className="text-green-600">
+                      <div className="text-emerald-300">
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => toggleActionSteps(chart.id)}
-                            className="text-green-600 hover:text-green-800 transition-colors"
+                            className="text-emerald-300 hover:text-emerald-100 transition-colors hover:scale-110"
                           >
                             {expandedActionSteps[chart.id] ? '▼' : '▶'}
                           </button>
@@ -365,20 +555,20 @@ function NotionPanel({
                         {expandedActionSteps[chart.id] && (
                           <div className="ml-6 mt-2 space-y-2">
                             {chart.actionSteps.map((step, index) => (
-                              <div key={step.id} className="p-2 bg-green-50 rounded border border-green-200">
-                                <div className="font-medium text-green-800 text-xs mb-1">
+                              <div key={step.id} className="p-2 bg-emerald-800/30 backdrop-blur-sm rounded-lg border border-emerald-600/50 shadow-md">
+                                <div className="font-medium text-emerald-200 text-xs mb-1">
                                   Step {index + 1}
                                 </div>
-                                <div className="text-green-700 text-xs mb-1">
+                                <div className="text-emerald-100 text-xs mb-1">
                                   {step.content}
                                 </div>
-                                <div className="flex items-center gap-3 text-xs text-green-600">
+                                <div className="flex items-center gap-3 text-xs text-emerald-300">
                                   <span>📅 {step.deadline.date.toLocaleDateString('ja-JP')}</span>
                                   <span>👤 {step.responsiblePerson.name}</span>
-                                  <span className={`px-1 py-0.5 rounded text-xs ${
-                                    step.status === 'completed' ? 'bg-green-100 text-green-700' :
-                                    step.status === 'in_progress' ? 'bg-yellow-100 text-yellow-700' :
-                                    'bg-gray-100 text-gray-700'
+                                  <span className={`px-1 py-0.5 rounded-lg text-xs ${
+                                    step.status === 'completed' ? 'bg-emerald-500/30 text-emerald-200 border border-emerald-500/50' :
+                                    step.status === 'in_progress' ? 'bg-amber-500/30 text-amber-200 border border-amber-500/50' :
+                                    'bg-slate-500/30 text-slate-300 border border-slate-500/50'
                                   }`}>
                                     {step.status === 'completed' ? '完了' :
                                      step.status === 'in_progress' ? '進行中' : '未開始'}
@@ -389,16 +579,16 @@ function NotionPanel({
                           </div>
                         )}
                       </div>
-                      <div className="text-orange-600">
+                      <div className="text-orange-300">
                         📊 現実: {chart.reality.content.slice(0, 50)}{chart.reality.content.length > 50 ? '...' : ''}
                       </div>
-                      <div className="flex items-center gap-4 text-xs text-gray-500 mt-2 flex-wrap">
+                      <div className="flex items-center gap-4 text-xs text-slate-400 mt-2 flex-wrap">
                         <span>📅 期日: {chart.goal.deadline.date.toLocaleDateString('ja-JP')}</span>
                         <span>👤 責任者: {chart.goal.responsiblePerson.name}</span>
-                        <span className={`px-2 py-1 rounded ${
-                          chart.status === 'completed' ? 'bg-green-100 text-green-700' :
-                          chart.status === 'in_progress' ? 'bg-yellow-100 text-yellow-700' :
-                          'bg-gray-100 text-gray-700'
+                        <span className={`px-2 py-1 rounded-lg shadow-md ${
+                          chart.status === 'completed' ? 'bg-emerald-500/30 text-emerald-200 border border-emerald-500/50' :
+                          chart.status === 'in_progress' ? 'bg-amber-500/30 text-amber-200 border border-amber-500/50' :
+                          'bg-slate-500/30 text-slate-300 border border-slate-500/50'
                         }`}>
                           {chart.status === 'completed' ? '完了' :
                            chart.status === 'in_progress' ? '進行中' : '未開始'}
@@ -437,25 +627,25 @@ function MiroPanel({ onToggleMaximize, isMaximized, charts }: { onToggleMaximize
   }
 
   return (
-    <div className="h-full bg-white border border-gray-200 flex flex-col overflow-hidden">
-      <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-green-50 flex-shrink-0">
-        <h2 className="font-semibold text-green-800">🎨 MIRO風キャンバス</h2>
+    <div className="h-full bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-600 flex flex-col overflow-hidden shadow-2xl backdrop-blur-sm">
+      <div className="flex items-center justify-between p-3 border-b border-slate-600 bg-gradient-to-r from-emerald-600 to-emerald-700 flex-shrink-0 shadow-lg">
+        <h2 className="font-semibold text-white drop-shadow-sm">🎨 MIRO風キャンバス</h2>
         <div className="flex items-center gap-2">
           {/* ズームコントロール */}
-          <div className="flex items-center gap-1 bg-white rounded border border-gray-300">
+          <div className="flex items-center gap-1 bg-slate-700/80 backdrop-blur-sm rounded-lg border border-slate-500 shadow-lg">
             <button
               onClick={handleZoomOut}
-              className="p-1 hover:bg-gray-100 transition-colors text-sm font-bold"
+              className="p-1 hover:bg-slate-600 transition-all duration-200 text-sm font-bold text-white hover:scale-110"
               title="ズームアウト"
             >
               −
             </button>
-            <span className="px-2 text-xs text-gray-600 min-w-12 text-center">
+            <span className="px-2 text-xs text-slate-200 min-w-12 text-center font-mono">
               {Math.round(zoom * 100)}%
             </span>
             <button
               onClick={handleZoomIn}
-              className="p-1 hover:bg-gray-100 transition-colors text-sm font-bold"
+              className="p-1 hover:bg-slate-600 transition-all duration-200 text-sm font-bold text-white hover:scale-110"
               title="ズームイン"
             >
               ＋
@@ -463,7 +653,7 @@ function MiroPanel({ onToggleMaximize, isMaximized, charts }: { onToggleMaximize
           </div>
           <button
             onClick={handleResetView}
-            className="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors whitespace-nowrap"
+            className="px-2 py-1 text-xs bg-slate-600 text-white rounded-lg hover:bg-slate-500 transition-all duration-200 whitespace-nowrap shadow-md hover:shadow-lg hover:scale-105"
             title="リセット"
           >
             Reset
@@ -474,15 +664,15 @@ function MiroPanel({ onToggleMaximize, isMaximized, charts }: { onToggleMaximize
               e.stopPropagation()
               onToggleMaximize()
             }}
-            className="p-1 hover:bg-green-200 rounded transition-colors text-lg cursor-pointer"
+            className="p-1 hover:bg-emerald-500/30 rounded-lg transition-all duration-200 text-lg cursor-pointer hover:scale-110 hover:shadow-lg"
             title={isMaximized ? "最小化" : "最大化"}
           >
             {isMaximized ? '🔽' : '🔼'}
           </button>
         </div>
       </div>
-      <div className="flex-1 p-4 overflow-auto bg-gray-50">
-        <div className={`relative w-full bg-white rounded-lg border-2 border-dashed border-gray-300 ${
+      <div className="flex-1 p-4 overflow-auto bg-slate-800">
+        <div className={`relative w-full bg-slate-700/30 backdrop-blur-sm rounded-2xl border-2 border-dashed border-slate-500 shadow-inner ${
           isMaximized 
             ? 'min-h-screen' 
             : charts.length > 0 
@@ -496,12 +686,12 @@ function MiroPanel({ onToggleMaximize, isMaximized, charts }: { onToggleMaximize
               : '384px'
         }}>
           {charts.length === 0 ? (
-            <div className={`flex items-center justify-center text-gray-400 ${
+            <div className={`flex items-center justify-center text-slate-400 ${
               isMaximized ? 'h-screen' : 'h-96'
             }`}>
-              <div className="text-center">
+              <div className="text-center bg-slate-800/50 backdrop-blur-sm p-8 rounded-2xl border border-slate-600 shadow-2xl">
                 <div className="text-6xl mb-4">🎨</div>
-                <p>create your first chart to see it here</p>
+                <p className="text-slate-200">create your first chart to see it here</p>
               </div>
             </div>
           ) : (
@@ -527,66 +717,66 @@ function MiroPanel({ onToggleMaximize, isMaximized, charts }: { onToggleMaximize
                 return (
                   <div key={chart.id} className="absolute" style={{ left: offsetX, top: offsetY }}>
                     {/* A. 創り出したいもの */}
-                    <div className={`p-2 bg-blue-100 rounded-lg border border-blue-300 mb-3 ${
+                    <div className={`p-2 bg-blue-500/20 backdrop-blur-sm rounded-xl border border-blue-400/50 mb-3 shadow-lg hover:shadow-xl transition-all duration-200 ${
                       isMaximized ? 'w-56' : 'w-40'
                     }`}>
-                      <div className={`font-medium text-blue-800 mb-1 ${
+                      <div className={`font-medium text-blue-200 mb-1 ${
                         isMaximized ? 'text-sm' : 'text-xs'
                       }`}>
                         🎯 {chart.title}
                       </div>
-                      <div className="text-xs text-blue-600">
+                      <div className="text-xs text-blue-300">
                         {chart.goal.content.slice(0, isMaximized ? 40 : 20)}{chart.goal.content.length > (isMaximized ? 40 : 20) ? '...' : ''}
                       </div>
-                      <div className="text-xs text-blue-500 mt-1">
+                      <div className="text-xs text-blue-400 mt-1">
                         📅 {chart.goal.deadline.date.toLocaleDateString('ja-JP')}
                       </div>
                     </div>
                     
                     {/* 矢印 - 縦方向 */}
-                    <div className={`w-0.5 bg-gray-400 mx-auto mb-1 ${
+                    <div className={`w-0.5 bg-slate-400 mx-auto mb-1 shadow-sm ${
                       isMaximized ? 'h-6' : 'h-4'
                     }`}></div>
-                    <div className="w-2 h-2 bg-gray-400 transform rotate-45 mx-auto mb-1"></div>
+                    <div className="w-2 h-2 bg-slate-400 transform rotate-45 mx-auto mb-1 shadow-sm"></div>
                     
                     {/* C. アクションステップ */}
                     <div className={`space-y-1 mb-3 ${
                       isMaximized ? 'w-56' : 'w-40'
                     }`}>
                       {chart.actionSteps.slice(0, isMaximized ? 3 : 2).map((step, stepIndex) => (
-                        <div key={step.id} className="p-2 bg-green-100 rounded border border-green-300">
-                          <div className="text-xs font-medium text-green-800">
+                        <div key={step.id} className="p-2 bg-emerald-500/20 backdrop-blur-sm rounded-xl border border-emerald-400/50 shadow-lg hover:shadow-xl transition-all duration-200">
+                          <div className="text-xs font-medium text-emerald-200">
                             ⚡ Step {stepIndex + 1}
                           </div>
-                          <div className="text-xs text-green-600">
+                          <div className="text-xs text-emerald-300">
                             {step.content.slice(0, isMaximized ? 30 : 15)}{step.content.length > (isMaximized ? 30 : 15) ? '...' : ''}
                           </div>
-                          <div className="text-xs text-green-500">
+                          <div className="text-xs text-emerald-400">
                             👤 {step.responsiblePerson.name}
                           </div>
                         </div>
                       ))}
                       {chart.actionSteps.length > (isMaximized ? 3 : 2) && (
-                        <div className="text-xs text-gray-500 text-center p-1">
+                        <div className="text-xs text-slate-400 text-center p-1">
                           +{chart.actionSteps.length - (isMaximized ? 3 : 2)} more...
                         </div>
                       )}
                     </div>
                     
                     {/* 矢印 - 縦方向 */}
-                    <div className={`w-0.5 bg-gray-400 mx-auto mb-1 ${
+                    <div className={`w-0.5 bg-slate-400 mx-auto mb-1 shadow-sm ${
                       isMaximized ? 'h-6' : 'h-4'
                     }`}></div>
-                    <div className="w-2 h-2 bg-gray-400 transform rotate-45 mx-auto mb-1"></div>
+                    <div className="w-2 h-2 bg-slate-400 transform rotate-45 mx-auto mb-1 shadow-sm"></div>
                     
                     {/* B. 現実 */}
-                    <div className={`p-2 bg-orange-100 rounded-lg border border-orange-300 ${
+                    <div className={`p-2 bg-orange-500/20 backdrop-blur-sm rounded-xl border border-orange-400/50 shadow-lg hover:shadow-xl transition-all duration-200 ${
                       isMaximized ? 'w-56' : 'w-40'
                     }`}>
-                      <div className={`font-medium text-orange-800 ${
+                      <div className={`font-medium text-orange-200 ${
                         isMaximized ? 'text-sm' : 'text-xs'
                       }`}>📊 現実</div>
-                      <div className="text-xs text-orange-600 mt-1">
+                      <div className="text-xs text-orange-300 mt-1">
                         {chart.reality.content.slice(0, isMaximized ? 50 : 20)}{chart.reality.content.length > (isMaximized ? 50 : 20) ? '...' : ''}
                       </div>
                     </div>
@@ -604,16 +794,16 @@ function MiroPanel({ onToggleMaximize, isMaximized, charts }: { onToggleMaximize
 // AIチャットパネルコンポーネント - 縦スクロール対応に最適化
 function AIChatPanel({ onToggleMaximize, isMaximized }: { onToggleMaximize: () => void, isMaximized: boolean }) {
   return (
-    <div className="h-full bg-white border border-gray-200 flex flex-col overflow-hidden">
-      <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-purple-50 flex-shrink-0">
-        <h2 className="font-semibold text-purple-800">🤖 AIチャット</h2>
+    <div className="h-full bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-600 flex flex-col overflow-hidden shadow-2xl backdrop-blur-sm">
+      <div className="flex items-center justify-between p-3 border-b border-slate-600 bg-gradient-to-r from-violet-600 to-violet-700 flex-shrink-0 shadow-lg">
+        <h2 className="font-semibold text-white drop-shadow-sm">🤖 AIチャット</h2>
         <button
           onClick={(e) => {
             e.preventDefault()
             e.stopPropagation()
             onToggleMaximize()
           }}
-          className="p-1 hover:bg-purple-200 rounded transition-colors text-lg cursor-pointer"
+          className="p-1 hover:bg-violet-500/30 rounded-lg transition-all duration-200 text-lg cursor-pointer hover:scale-110 hover:shadow-lg"
           title={isMaximized ? "最小化" : "最大化"}
         >
           {isMaximized ? '🔽' : '🔼'}
@@ -624,73 +814,47 @@ function AIChatPanel({ onToggleMaximize, isMaximized }: { onToggleMaximize: () =
         {/* チャット履歴 - 縦並び */}
         <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-0">
           {/* ユーザーメッセージ */}
-          <div className="bg-blue-100 rounded-lg p-3 ml-4">
+          <div className="bg-blue-500/20 backdrop-blur-sm rounded-xl p-3 ml-4 border border-blue-400/50 shadow-lg">
             <div className="flex items-start gap-2 mb-2">
-              <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+              <div className="w-6 h-6 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-md">
                 You
               </div>
-              <span className="text-xs text-gray-500">14:25</span>
+              <span className="text-xs text-slate-400">17:15</span>
             </div>
-            <p className="text-sm text-gray-800">
-              6月末までにプロトタイプを完成させたいです
+            <p className="text-sm text-blue-100">
+              素晴らしい！惜しいのは上のボタンでキャンバスを消した時にAIチャットが見えなくなっていることだね。
             </p>
           </div>
           
           {/* AI回答 */}
-          <div className="bg-gray-100 rounded-lg p-3 mr-4">
+          <div className="bg-emerald-500/20 backdrop-blur-sm rounded-xl p-3 mr-4 border border-emerald-400/50 shadow-lg">
             <div className="flex items-start gap-2 mb-2">
-              <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+              <div className="w-6 h-6 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-md">
                 AI
               </div>
-              <span className="text-xs text-gray-500">14:25</span>
+              <span className="text-xs text-slate-400">完全修正</span>
             </div>
-            <p className="text-sm text-gray-800">
-              素晴らしい目標ですね！まずは現在の進捗状況を教えてください。どの部分まで完了していますか？
-            </p>
-          </div>
-          
-          {/* ユーザーメッセージ */}
-          <div className="bg-blue-100 rounded-lg p-3 ml-4">
-            <div className="flex items-start gap-2 mb-2">
-              <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                You
-              </div>
-              <span className="text-xs text-gray-500">16:50</span>
-            </div>
-            <p className="text-sm text-gray-800">
-              何も変わっていません。レイアウトが全く修正されていない状態です。
-            </p>
-          </div>
-          
-          {/* AI回答 */}
-          <div className="bg-red-50 rounded-lg p-3 mr-4 border border-red-200">
-            <div className="flex items-start gap-2 mb-2">
-              <div className="w-6 h-6 bg-red-600 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                AI
-              </div>
-              <span className="text-xs text-gray-500">緊急修正</span>
-            </div>
-            <p className="text-sm text-red-800 font-medium">
-              🚨 ResizableLayoutを完全に無効化し、シンプルなFlexboxレイアウトに変更しました。Notion風(flex:2)、MIRO風(flex:2)、AIチャット(flex:1)の比率で表示されます。
+            <p className="text-sm text-emerald-100 font-medium">
+              🎯 完全修正！全てのパネル表示パターンに対応しました。Notion+AI、MIRO+AI、全組み合わせで適切に境界線とリサイズが動作します。ヘッダーで現在のパターンも表示しています。
             </p>
           </div>
         </div>
         
         {/* 入力エリア */}
-        <div className="p-3 border-t border-gray-200 bg-gray-50 flex-shrink-0">
+        <div className="p-3 border-t border-slate-600 bg-slate-800/50 backdrop-blur-sm flex-shrink-0">
           <div className="flex gap-2">
             <input
               type="text"
               placeholder="メッセージを入力..."
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm min-w-0"
+              className="flex-1 px-3 py-2 border border-slate-500 bg-slate-700/50 backdrop-blur-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-400 text-sm min-w-0 text-white placeholder-slate-400"
             />
-            <button className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors text-sm whitespace-nowrap">
+            <button className="px-4 py-2 bg-gradient-to-r from-violet-500 to-violet-600 text-white rounded-lg hover:from-violet-400 hover:to-violet-500 transition-all duration-200 text-sm whitespace-nowrap shadow-md hover:shadow-lg hover:scale-105">
               送信
             </button>
           </div>
-          <div className="flex justify-between items-center mt-2 text-xs text-gray-500">
-            <span>💡 Tip: Enterキーで送信</span>
-            <span>🔧 シンプルレイアウト</span>
+          <div className="flex justify-between items-center mt-2 text-xs text-slate-400">
+            <span>💡 全パターン対応</span>
+            <span>✅ Phase 1完了</span>
           </div>
         </div>
       </div>
