@@ -94,9 +94,9 @@ export default function ResizableLayout({
   return (
     <div ref={containerRef} className={`${containerClass} ${className}`}>
       {children.map((child, index) => (
-        <div key={index} className="flex flex-col min-h-0 min-w-0">
+        <div key={index} className="flex">
           <div
-            className="flex-1 overflow-hidden"
+            className="flex-shrink-0 overflow-hidden"
             style={{
               [direction === 'horizontal' ? 'width' : 'height']: `${sizes[index]}%`
             }}

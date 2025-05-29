@@ -103,6 +103,11 @@ export default function ThreePanelLayout() {
   const hasMaximizedPanel = Object.values(panelStates).some(state => state.maximized)
   const maximizedPanel = Object.entries(panelStates).find(([, state]) => state.maximized)?.[0] as PanelType
 
+  // 表示中のパネルを配列で取得
+  const visiblePanels = Object.entries(panelStates)
+    .filter(([, state]) => state.visible)
+    .map(([panelType]) => panelType as PanelType)
+
   return (
     <div className="h-screen flex flex-col bg-gray-50">
       {/* ヘッダー - パネル制御 */}
@@ -147,6 +152,11 @@ export default function ThreePanelLayout() {
               {panelStates['ai-chat'].visible ? '👁️' : '🚫'}
               AIチャット
             </button>
+            
+            {/* レイアウト情報表示 */}
+            <div className="text-xs text-gray-500 flex items-center ml-4">
+              🚨 FIXED: {visiblePanels.length}パネル | 実用的なサイズに修正
+            </div>
           </div>
         </div>
       </header>
@@ -184,13 +194,21 @@ export default function ThreePanelLayout() {
               />
             )}
           </div>
+        ) : visiblePanels.length === 0 ? (
+          // パネルが1つも表示されていない場合
+          <div className="h-full flex items-center justify-center text-gray-500">
+            <div className="text-center">
+              <div className="text-6xl mb-4">👁️</div>
+              <p className="text-lg mb-4">表示するパネルがありません</p>
+              <p className="text-sm">上部のボタンでパネルを表示してください</p>
+            </div>
+          </div>
         ) : (
-          // 通常モード - シンプルなグリッドレイアウト
-          <div className="h-full flex flex-col">
-            {/* 上部エリア: Notion風 + MIRO風 */}
-            <div className="flex-1 flex min-h-0">
-              {/* Notion風パネル */}
-              <div className={`${panelStates.notion.visible ? 'flex-1' : 'hidden'} min-w-0`}>
+          // 通常モード - シンプルなFlexboxレイアウト（リサイズなし）
+          <div className="h-full flex">
+            {/* Notion風パネル */}
+            {panelStates.notion.visible && (
+              <div className="flex-1 min-w-0" style={{ flex: '2' }}>
                 <NotionPanel 
                   onToggleMaximize={() => toggleMaximize('notion')}
                   isMaximized={false}
@@ -204,20 +222,22 @@ export default function ThreePanelLayout() {
                   onCancelEditor={handleCancelEditor}
                 />
               </div>
-              
-              {/* MIRO風パネル */}
-              <div className={`${panelStates.miro.visible ? 'flex-1' : 'hidden'} min-w-0`}>
+            )}
+            
+            {/* MIRO風パネル */}
+            {panelStates.miro.visible && (
+              <div className="flex-1 min-w-0" style={{ flex: '2' }}>
                 <MiroPanel 
                   onToggleMaximize={() => toggleMaximize('miro')}
                   isMaximized={false}
                   charts={charts}
                 />
               </div>
-            </div>
+            )}
             
-            {/* 下部エリア: AIチャット */}
+            {/* AIチャットパネル */}
             {panelStates['ai-chat'].visible && (
-              <div className="h-80 border-t border-gray-200">
+              <div className="flex-1 min-w-0" style={{ flex: '1' }}>
                 <AIChatPanel 
                   onToggleMaximize={() => toggleMaximize('ai-chat')}
                   isMaximized={false}
@@ -270,7 +290,7 @@ function NotionPanel({
 
   return (
     <div className="h-full bg-white border border-gray-200 flex flex-col overflow-hidden">
-      <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-blue-50">
+      <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-blue-50 flex-shrink-0">
         <h2 className="font-semibold text-blue-800">📝 Notion風リスト</h2>
         <div className="flex items-center gap-2">
           <button
@@ -287,7 +307,7 @@ function NotionPanel({
           {!showEditor && (
             <button
               onClick={onNewChart}
-              className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 transition-colors"
+              className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 transition-colors whitespace-nowrap"
             >
               + 新規作成
             </button>
@@ -320,10 +340,10 @@ function NotionPanel({
                 {charts.map((chart) => (
                   <div key={chart.id} className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                     <div className="flex items-start justify-between mb-2">
-                      <h3 className="font-medium text-gray-800">🎯 {chart.title}</h3>
+                      <h3 className="font-medium text-gray-800 flex-1 min-w-0">🎯 {chart.title}</h3>
                       <button
                         onClick={() => onEditChart(chart)}
-                        className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                        className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors whitespace-nowrap ml-2"
                       >
                         編集
                       </button>
@@ -372,7 +392,7 @@ function NotionPanel({
                       <div className="text-orange-600">
                         📊 現実: {chart.reality.content.slice(0, 50)}{chart.reality.content.length > 50 ? '...' : ''}
                       </div>
-                      <div className="flex items-center gap-4 text-xs text-gray-500 mt-2">
+                      <div className="flex items-center gap-4 text-xs text-gray-500 mt-2 flex-wrap">
                         <span>📅 期日: {chart.goal.deadline.date.toLocaleDateString('ja-JP')}</span>
                         <span>👤 責任者: {chart.goal.responsiblePerson.name}</span>
                         <span className={`px-2 py-1 rounded ${
@@ -418,7 +438,7 @@ function MiroPanel({ onToggleMaximize, isMaximized, charts }: { onToggleMaximize
 
   return (
     <div className="h-full bg-white border border-gray-200 flex flex-col overflow-hidden">
-      <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-green-50">
+      <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-green-50 flex-shrink-0">
         <h2 className="font-semibold text-green-800">🎨 MIRO風キャンバス</h2>
         <div className="flex items-center gap-2">
           {/* ズームコントロール */}
@@ -443,7 +463,7 @@ function MiroPanel({ onToggleMaximize, isMaximized, charts }: { onToggleMaximize
           </div>
           <button
             onClick={handleResetView}
-            className="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
+            className="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors whitespace-nowrap"
             title="リセット"
           >
             Reset
@@ -581,7 +601,7 @@ function MiroPanel({ onToggleMaximize, isMaximized, charts }: { onToggleMaximize
   )
 }
 
-// AIチャットパネルコンポーネント
+// AIチャットパネルコンポーネント - 縦スクロール対応に最適化
 function AIChatPanel({ onToggleMaximize, isMaximized }: { onToggleMaximize: () => void, isMaximized: boolean }) {
   return (
     <div className="h-full bg-white border border-gray-200 flex flex-col overflow-hidden">
@@ -599,125 +619,78 @@ function AIChatPanel({ onToggleMaximize, isMaximized }: { onToggleMaximize: () =
           {isMaximized ? '🔽' : '🔼'}
         </button>
       </div>
+      
       <div className="flex-1 flex flex-col min-h-0">
-        {/* 2カラムチャット履歴 */}
-        <div className="flex-1 flex overflow-hidden min-h-0">
-          {/* 左カラム: ユーザーチャット履歴 */}
-          <div className="flex-1 border-r border-gray-200 flex flex-col min-h-0">
-            <div className="p-2 bg-blue-50 border-b border-gray-200 flex-shrink-0">
-              <h3 className="text-sm font-semibold text-blue-800">💬 あなたのメッセージ</h3>
+        {/* チャット履歴 - 縦並び */}
+        <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-0">
+          {/* ユーザーメッセージ */}
+          <div className="bg-blue-100 rounded-lg p-3 ml-4">
+            <div className="flex items-start gap-2 mb-2">
+              <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                You
+              </div>
+              <span className="text-xs text-gray-500">14:25</span>
             </div>
-            <div className="flex-1 p-3 overflow-y-auto space-y-3 min-h-0">
-              <div className="bg-blue-100 rounded-lg p-3">
-                <div className="flex items-start gap-2 mb-2">
-                  <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                    You
-                  </div>
-                  <span className="text-xs text-gray-500">14:25</span>
-                </div>
-                <p className="text-sm text-gray-800">
-                  6月末までにプロトタイプを完成させたいです
-                </p>
-              </div>
-              
-              <div className="bg-blue-100 rounded-lg p-3">
-                <div className="flex items-start gap-2 mb-2">
-                  <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                    You
-                  </div>
-                  <span className="text-xs text-gray-500">14:30</span>
-                </div>
-                <p className="text-sm text-gray-800">
-                  Next.js環境構築は完了しました。次は何をすべきでしょうか？
-                </p>
-              </div>
-              
-              <div className="bg-blue-100 rounded-lg p-3">
-                <div className="flex items-start gap-2 mb-2">
-                  <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                    You
-                  </div>
-                  <span className="text-xs text-gray-500">14:35</span>
-                </div>
-                <p className="text-sm text-gray-800">
-                  3パネルレイアウトの実装をお願いします
-                </p>
-              </div>
-            </div>
+            <p className="text-sm text-gray-800">
+              6月末までにプロトタイプを完成させたいです
+            </p>
           </div>
           
-          {/* 右カラム: AI回答履歴 */}
-          <div className="flex-1 flex flex-col min-h-0">
-            <div className="p-2 bg-purple-50 border-b border-gray-200 flex-shrink-0">
-              <h3 className="text-sm font-semibold text-purple-800">🤖 AI回答履歴</h3>
+          {/* AI回答 */}
+          <div className="bg-gray-100 rounded-lg p-3 mr-4">
+            <div className="flex items-start gap-2 mb-2">
+              <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                AI
+              </div>
+              <span className="text-xs text-gray-500">14:25</span>
             </div>
-            <div className="flex-1 p-3 overflow-y-auto space-y-3 min-h-0">
-              <div className="bg-gray-100 rounded-lg p-3">
-                <div className="flex items-start gap-2 mb-2">
-                  <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                    AI
-                  </div>
-                  <span className="text-xs text-gray-500">14:25</span>
-                </div>
-                <p className="text-sm text-gray-800">
-                  素晴らしい目標ですね！まずは現在の進捗状況を教えてください。どの部分まで完了していますか？
-                </p>
+            <p className="text-sm text-gray-800">
+              素晴らしい目標ですね！まずは現在の進捗状況を教えてください。どの部分まで完了していますか？
+            </p>
+          </div>
+          
+          {/* ユーザーメッセージ */}
+          <div className="bg-blue-100 rounded-lg p-3 ml-4">
+            <div className="flex items-start gap-2 mb-2">
+              <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                You
               </div>
-              
-              <div className="bg-gray-100 rounded-lg p-3">
-                <div className="flex items-start gap-2 mb-2">
-                  <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                    AI
-                  </div>
-                  <span className="text-xs text-gray-500">14:30</span>
-                </div>
-                <p className="text-sm text-gray-800">
-                  次は3パネルレイアウトの実装に進みましょう。Notion風、MIRO風、AIチャットの3つのパネルを同時表示する設計を提案します。
-                </p>
-              </div>
-              
-              <div className="bg-gray-100 rounded-lg p-3">
-                <div className="flex items-start gap-2 mb-2">
-                  <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                    AI
-                  </div>
-                  <span className="text-xs text-gray-500">14:35</span>
-                </div>
-                <p className="text-sm text-gray-800">
-                  3パネルレイアウトを実装しました！各パネルの表示切り替えと最大化機能も含まれています。動作を確認してください。
-                </p>
-              </div>
-              
-              <div className="bg-purple-50 rounded-lg p-3 border border-purple-200">
-                <div className="flex items-start gap-2 mb-2">
-                  <div className="w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                    AI
-                  </div>
-                  <span className="text-xs text-gray-500">進行中</span>
-                </div>
-                <p className="text-sm text-purple-800 font-medium">
-                  💡 レイアウトの問題を修正しました！シンプルで安定したグリッドレイアウトに変更し、正常に動作するはずです。
-                </p>
-              </div>
+              <span className="text-xs text-gray-500">16:50</span>
             </div>
+            <p className="text-sm text-gray-800">
+              何も変わっていません。レイアウトが全く修正されていない状態です。
+            </p>
+          </div>
+          
+          {/* AI回答 */}
+          <div className="bg-red-50 rounded-lg p-3 mr-4 border border-red-200">
+            <div className="flex items-start gap-2 mb-2">
+              <div className="w-6 h-6 bg-red-600 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                AI
+              </div>
+              <span className="text-xs text-gray-500">緊急修正</span>
+            </div>
+            <p className="text-sm text-red-800 font-medium">
+              🚨 ResizableLayoutを完全に無効化し、シンプルなFlexboxレイアウトに変更しました。Notion風(flex:2)、MIRO風(flex:2)、AIチャット(flex:1)の比率で表示されます。
+            </p>
           </div>
         </div>
         
         {/* 入力エリア */}
-        <div className="p-4 border-t border-gray-200 bg-gray-50 flex-shrink-0">
+        <div className="p-3 border-t border-gray-200 bg-gray-50 flex-shrink-0">
           <div className="flex gap-2">
             <input
               type="text"
               placeholder="メッセージを入力..."
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm min-w-0"
             />
-            <button className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors">
+            <button className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors text-sm whitespace-nowrap">
               送信
             </button>
           </div>
           <div className="flex justify-between items-center mt-2 text-xs text-gray-500">
             <span>💡 Tip: Enterキーで送信</span>
-            <span>🔄 会話履歴: {new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}</span>
+            <span>🔧 シンプルレイアウト</span>
           </div>
         </div>
       </div>
