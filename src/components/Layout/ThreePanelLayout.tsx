@@ -23,6 +23,9 @@ interface PanelStates {
 }
 
 export default function ThreePanelLayout() {
+  // テーマ管理
+  const [isDarkMode, setIsDarkMode] = useState(true)
+  
   // 各パネルの状態管理
   const [panelStates, setPanelStates] = useState<PanelStates>({
     notion: { visible: true, maximized: false },
@@ -255,21 +258,72 @@ export default function ThreePanelLayout() {
 
   const boundaryType = getBoundaryType()
 
+  // テーマ切り替え関数
+  const toggleTheme = () => {
+    setIsDarkMode(!isDarkMode)
+  }
+
+  // テーマに応じたスタイル関数
+  const getThemeClasses = () => {
+    if (isDarkMode) {
+      return {
+        mainBg: 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900',
+        headerBg: 'bg-gradient-to-r from-slate-800 to-slate-700 border-slate-600',
+        headerText: 'text-white',
+        panelBg: 'bg-gradient-to-br from-slate-800 to-slate-900 border-slate-600',
+        buttonActive: 'shadow-lg hover:shadow-xl hover:scale-105',
+        textPrimary: 'text-white',
+        textSecondary: 'text-slate-300',
+        textInfo: 'text-slate-300',
+        boundary: 'bg-slate-600',
+        emptyBg: 'bg-slate-800/50 border-slate-700'
+      }
+    } else {
+      return {
+        mainBg: 'bg-gradient-to-br from-gray-50 to-white',
+        headerBg: 'bg-white border-gray-200 shadow-md',
+        headerText: 'text-gray-800',
+        panelBg: 'bg-white border-gray-200',
+        buttonActive: 'shadow-md hover:shadow-lg hover:scale-105',
+        textPrimary: 'text-gray-800',
+        textSecondary: 'text-gray-600',
+        textInfo: 'text-gray-500',
+        boundary: 'bg-gray-300',
+        emptyBg: 'bg-gray-100 border-gray-300'
+      }
+    }
+  }
+
+  const theme = getThemeClasses()
+
   return (
-    <div className="h-screen flex flex-col bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className={`h-screen flex flex-col ${theme.mainBg}`}>
       {/* ヘッダー - パネル制御 */}
-      <header className="bg-gradient-to-r from-slate-800 to-slate-700 border-b border-slate-600 p-4 shadow-lg backdrop-blur-sm">
+      <header className={`${theme.headerBg} border-b p-4 shadow-lg backdrop-blur-sm`}>
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-white drop-shadow-sm">緊張構造チャート管理アプリ</h1>
+          <h1 className={`text-xl font-bold ${theme.headerText} drop-shadow-sm`}>緊張構造チャート管理アプリ</h1>
           
           <div className="flex gap-2">
+            {/* テーマ切り替えボタン */}
+            <button
+              onClick={toggleTheme}
+              className={`flex items-center gap-1 px-3 py-1 rounded-lg text-sm transition-all duration-200 ${theme.buttonActive} ${
+                isDarkMode 
+                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-amber-500/30' 
+                  : 'bg-gradient-to-r from-slate-700 to-slate-800 text-white shadow-slate-500/30'
+              }`}
+            >
+              {isDarkMode ? '☀️' : '🌙'}
+              {isDarkMode ? 'ライト' : 'ダーク'}
+            </button>
+            
             {/* パネル表示切り替えボタン */}
             <button
               onClick={() => toggleVisibility('notion')}
-              className={`flex items-center gap-1 px-3 py-1 rounded-lg text-sm transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 ${
+              className={`flex items-center gap-1 px-3 py-1 rounded-lg text-sm transition-all duration-200 ${theme.buttonActive} ${
                 panelStates.notion.visible 
                   ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-blue-500/30' 
-                  : 'bg-slate-600 text-slate-300 hover:bg-slate-500'
+                  : `${isDarkMode ? 'bg-slate-600 text-slate-300 hover:bg-slate-500' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`
               }`}
             >
               {panelStates.notion.visible ? '👁️' : '🚫'}
@@ -278,10 +332,10 @@ export default function ThreePanelLayout() {
             
             <button
               onClick={() => toggleVisibility('miro')}
-              className={`flex items-center gap-1 px-3 py-1 rounded-lg text-sm transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 ${
+              className={`flex items-center gap-1 px-3 py-1 rounded-lg text-sm transition-all duration-200 ${theme.buttonActive} ${
                 panelStates.miro.visible 
                   ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-emerald-500/30' 
-                  : 'bg-slate-600 text-slate-300 hover:bg-slate-500'
+                  : `${isDarkMode ? 'bg-slate-600 text-slate-300 hover:bg-slate-500' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`
               }`}
             >
               {panelStates.miro.visible ? '👁️' : '🚫'}
@@ -290,10 +344,10 @@ export default function ThreePanelLayout() {
             
             <button
               onClick={() => toggleVisibility('ai-chat')}
-              className={`flex items-center gap-1 px-3 py-1 rounded-lg text-sm transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 ${
+              className={`flex items-center gap-1 px-3 py-1 rounded-lg text-sm transition-all duration-200 ${theme.buttonActive} ${
                 panelStates['ai-chat'].visible 
                   ? 'bg-gradient-to-r from-violet-500 to-violet-600 text-white shadow-violet-500/30' 
-                  : 'bg-slate-600 text-slate-300 hover:bg-slate-500'
+                  : `${isDarkMode ? 'bg-slate-600 text-slate-300 hover:bg-slate-500' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`
               }`}
             >
               {panelStates['ai-chat'].visible ? '👁️' : '🚫'}
@@ -301,7 +355,7 @@ export default function ThreePanelLayout() {
             </button>
             
             {/* リサイズ情報表示 */}
-            <div className="text-xs text-slate-300 flex items-center ml-4 font-mono">
+            <div className={`text-xs ${theme.textInfo} flex items-center ml-4 font-mono`}>
               🔧 {visiblePanels.length}パネル | {boundaryType} | 
               リサイズ: {panelWidths.notion.toFixed(1)} - {panelWidths.miro.toFixed(1)} - {panelWidths.ai.toFixed(1)}
               {isResizing && <span className="text-cyan-400 font-bold ml-2 animate-pulse">📏 {isResizing}</span>}
@@ -327,6 +381,8 @@ export default function ThreePanelLayout() {
                 ChartEditor={ChartEditor}
                 onSaveChart={handleSaveChart}
                 onCancelEditor={handleCancelEditor}
+                isDarkMode={isDarkMode}
+                theme={theme}
               />
             )}
             {maximizedPanel === 'miro' && panelStates.miro.visible && (
@@ -334,22 +390,26 @@ export default function ThreePanelLayout() {
                 onToggleMaximize={() => toggleMaximize('miro')}
                 isMaximized={true}
                 charts={charts}
+                isDarkMode={isDarkMode}
+                theme={theme}
               />
             )}
             {maximizedPanel === 'ai-chat' && panelStates['ai-chat'].visible && (
               <AIChatPanel 
                 onToggleMaximize={() => toggleMaximize('ai-chat')}
                 isMaximized={true}
+                isDarkMode={isDarkMode}
+                theme={theme}
               />
             )}
           </div>
         ) : visiblePanels.length === 0 ? (
           // パネルが1つも表示されていない場合
-          <div className="h-full flex items-center justify-center text-slate-400">
-            <div className="text-center bg-slate-800/50 backdrop-blur-sm p-8 rounded-2xl border border-slate-700 shadow-2xl">
+          <div className={`h-full flex items-center justify-center ${theme.textSecondary}`}>
+            <div className={`text-center ${theme.emptyBg} backdrop-blur-sm p-8 rounded-2xl border shadow-2xl`}>
               <div className="text-6xl mb-4">👁️</div>
-              <p className="text-lg mb-4 text-slate-200">表示するパネルがありません</p>
-              <p className="text-sm text-slate-400">上部のボタンでパネルを表示してください</p>
+              <p className={`text-lg mb-4 ${theme.textPrimary}`}>表示するパネルがありません</p>
+              <p className={`text-sm ${theme.textSecondary}`}>上部のボタンでパネルを表示してください</p>
             </div>
           </div>
         ) : (
@@ -376,14 +436,21 @@ export default function ThreePanelLayout() {
                 ChartEditor={ChartEditor}
                 onSaveChart={handleSaveChart}
                 onCancelEditor={handleCancelEditor}
+                isDarkMode={isDarkMode}
+                theme={theme}
               />
             )}
             
             {/* Notion-MIRO間の境界線 */}
             {needsBoundary('notion', 'miro') && (
               <div 
-                className={`bg-slate-600 hover:bg-gradient-to-r hover:from-blue-500 hover:to-emerald-500 cursor-col-resize transition-all duration-200 shadow-lg ${
-                  isResizing === 'notion-miro' ? 'bg-gradient-to-r from-blue-500 to-emerald-500 shadow-xl' : ''
+                className={`${theme.boundary} ${isDarkMode 
+                  ? 'hover:bg-gradient-to-r hover:from-blue-500 hover:to-emerald-500 cursor-col-resize transition-all duration-200 shadow-lg' 
+                  : 'hover:bg-gradient-to-r hover:from-blue-400 hover:to-emerald-400 cursor-col-resize transition-all duration-200 shadow-md'
+                } ${
+                  isResizing === 'notion-miro' 
+                    ? 'bg-gradient-to-r from-blue-500 to-emerald-500 shadow-xl' 
+                    : ''
                 }`}
                 onMouseDown={handleResize('notion-miro')}
                 style={{ width: '4px' }}
@@ -397,14 +464,21 @@ export default function ThreePanelLayout() {
                 onToggleMaximize={() => toggleMaximize('miro')}
                 isMaximized={false}
                 charts={charts}
+                isDarkMode={isDarkMode}
+                theme={theme}
               />
             )}
             
             {/* MIRO-AI間の境界線 */}
             {needsBoundary('miro', 'ai-chat') && (
               <div 
-                className={`bg-slate-600 hover:bg-gradient-to-r hover:from-emerald-500 hover:to-violet-500 cursor-col-resize transition-all duration-200 shadow-lg ${
-                  isResizing === 'miro-ai' ? 'bg-gradient-to-r from-emerald-500 to-violet-500 shadow-xl' : ''
+                className={`${theme.boundary} ${isDarkMode 
+                  ? 'hover:bg-gradient-to-r hover:from-emerald-500 hover:to-violet-500 cursor-col-resize transition-all duration-200 shadow-lg' 
+                  : 'hover:bg-gradient-to-r hover:from-emerald-400 hover:to-violet-400 cursor-col-resize transition-all duration-200 shadow-md'
+                } ${
+                  isResizing === 'miro-ai' 
+                    ? 'bg-gradient-to-r from-emerald-500 to-violet-500 shadow-xl' 
+                    : ''
                 }`}
                 onMouseDown={handleResize('miro-ai')}
                 style={{ width: '4px' }}
@@ -415,8 +489,13 @@ export default function ThreePanelLayout() {
             {/* Notion-AI間の境界線（MIROが非表示の場合） */}
             {needsBoundary('notion', 'ai-chat') && !panelStates.miro.visible && (
               <div 
-                className={`bg-slate-600 hover:bg-gradient-to-r hover:from-blue-500 hover:to-violet-500 cursor-col-resize transition-all duration-200 shadow-lg ${
-                  isResizing === 'notion-ai' ? 'bg-gradient-to-r from-blue-500 to-violet-500 shadow-xl' : ''
+                className={`${theme.boundary} ${isDarkMode 
+                  ? 'hover:bg-gradient-to-r hover:from-blue-500 hover:to-violet-500 cursor-col-resize transition-all duration-200 shadow-lg' 
+                  : 'hover:bg-gradient-to-r hover:from-blue-400 hover:to-violet-400 cursor-col-resize transition-all duration-200 shadow-md'
+                } ${
+                  isResizing === 'notion-ai' 
+                    ? 'bg-gradient-to-r from-blue-500 to-violet-500 shadow-xl' 
+                    : ''
                 }`}
                 onMouseDown={handleResize('notion-ai')}
                 style={{ width: '4px' }}
@@ -429,6 +508,8 @@ export default function ThreePanelLayout() {
               <AIChatPanel 
                 onToggleMaximize={() => toggleMaximize('ai-chat')}
                 isMaximized={false}
+                isDarkMode={isDarkMode}
+                theme={theme}
               />
             )}
           </div>
@@ -453,6 +534,8 @@ interface NotionPanelProps {
   ChartEditor: any
   onSaveChart: (chart: TensionStructureChart) => void
   onCancelEditor: () => void
+  isDarkMode: boolean
+  theme: any
 }
 
 function NotionPanel({ 
@@ -465,7 +548,9 @@ function NotionPanel({
   onEditChart, 
   ChartEditor, 
   onSaveChart, 
-  onCancelEditor 
+  onCancelEditor,
+  isDarkMode,
+  theme
 }: NotionPanelProps) {
   // アクションステップの展開状態管理
   const [expandedActionSteps, setExpandedActionSteps] = useState<Record<string, boolean>>({})
@@ -479,8 +564,8 @@ function NotionPanel({
   }
 
   return (
-    <div className="h-full bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-600 flex flex-col overflow-hidden shadow-2xl backdrop-blur-sm">
-      <div className="flex items-center justify-between p-3 border-b border-slate-600 bg-gradient-to-r from-blue-600 to-blue-700 flex-shrink-0 shadow-lg">
+    <div className={`h-full ${theme.panelBg} border flex flex-col overflow-hidden shadow-2xl backdrop-blur-sm`}>
+      <div className={`flex items-center justify-between p-3 border-b ${isDarkMode ? 'border-slate-600 bg-gradient-to-r from-blue-600 to-blue-700' : 'border-gray-200 bg-gradient-to-r from-blue-500 to-blue-600'} flex-shrink-0 shadow-lg`}>
         <h2 className="font-semibold text-white drop-shadow-sm">📝 Notion風リスト</h2>
         <div className="flex items-center gap-2">
           <button
@@ -489,7 +574,7 @@ function NotionPanel({
               e.stopPropagation()
               onToggleMaximize()
             }}
-            className="p-1 hover:bg-blue-500/30 rounded-lg transition-all duration-200 text-lg cursor-pointer hover:scale-110 hover:shadow-lg"
+            className={`p-1 ${isDarkMode ? 'hover:bg-blue-500/30' : 'hover:bg-blue-300/50'} rounded-lg transition-all duration-200 text-lg cursor-pointer hover:scale-110 hover:shadow-lg`}
             title={isMaximized ? "最小化" : "最大化"}
           >
             {isMaximized ? '🔽' : '🔼'}
@@ -497,7 +582,7 @@ function NotionPanel({
           {!showEditor && (
             <button
               onClick={onNewChart}
-              className="px-3 py-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg text-sm hover:from-blue-400 hover:to-blue-500 transition-all duration-200 whitespace-nowrap shadow-md hover:shadow-lg hover:scale-105"
+              className={`px-3 py-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg text-sm hover:from-blue-400 hover:to-blue-500 transition-all duration-200 whitespace-nowrap ${theme.buttonActive}`}
             >
               + 新規作成
             </button>
@@ -511,16 +596,17 @@ function NotionPanel({
             onSave={onSaveChart}
             onCancel={onCancelEditor}
             isMaximized={isMaximized}
+            isDarkMode={isDarkMode}
           />
         ) : (
           <div className="p-4">
             {charts.length === 0 ? (
-              <div className="text-center py-8 text-slate-300">
+            <div className="text-center py-8 text-slate-300">
                 <div className="text-4xl mb-4">📝</div>
-                <p className="mb-4 text-slate-200">まだチャートがありません</p>
+                <p className={`mb-4 ${theme.textPrimary}`}>まだチャートがありません</p>
                 <button
                   onClick={onNewChart}
-                  className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-400 hover:to-blue-500 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105"
+                  className={`px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-400 hover:to-blue-500 transition-all duration-200 ${theme.buttonActive}`}
                 >
                   最初のチャートを作成
                 </button>
@@ -528,25 +614,25 @@ function NotionPanel({
             ) : (
               <div className="space-y-3">
                 {charts.map((chart) => (
-                  <div key={chart.id} className="p-3 bg-slate-700/50 backdrop-blur-sm rounded-xl hover:bg-slate-600/60 transition-all duration-200 border border-slate-600 shadow-lg hover:shadow-xl hover:scale-[1.02]">
+                  <div key={chart.id} className={`p-3 ${isDarkMode ? 'bg-slate-700/50 hover:bg-slate-600/60 border-slate-600' : 'bg-gray-50 hover:bg-gray-100 border-gray-200'} backdrop-blur-sm rounded-xl transition-all duration-200 border shadow-lg hover:shadow-xl hover:scale-[1.02]`}>
                     <div className="flex items-start justify-between mb-2">
-                      <h3 className="font-medium text-white flex-1 min-w-0">🎯 {chart.title}</h3>
+                      <h3 className={`font-medium ${theme.textPrimary} flex-1 min-w-0`}>🎯 {chart.title}</h3>
                       <button
                         onClick={() => onEditChart(chart)}
-                        className="px-2 py-1 text-xs bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-400 hover:to-blue-500 transition-all duration-200 whitespace-nowrap ml-2 shadow-md hover:shadow-lg hover:scale-105"
+                        className={`px-2 py-1 text-xs bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-400 hover:to-blue-500 transition-all duration-200 whitespace-nowrap ml-2 ${theme.buttonActive}`}
                       >
                         編集
                       </button>
                     </div>
                     <div className="ml-4 space-y-2 text-sm">
-                      <div className="text-blue-300">
+                      <div className={`${isDarkMode ? 'text-blue-300' : 'text-blue-600'}`}>
                         💡 創り出したいもの: {chart.goal.content.slice(0, 50)}{chart.goal.content.length > 50 ? '...' : ''}
                       </div>
-                      <div className="text-emerald-300">
+                      <div className={`${isDarkMode ? 'text-emerald-300' : 'text-emerald-600'}`}>
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => toggleActionSteps(chart.id)}
-                            className="text-emerald-300 hover:text-emerald-100 transition-colors hover:scale-110"
+                            className={`${isDarkMode ? 'text-emerald-300 hover:text-emerald-100' : 'text-emerald-600 hover:text-emerald-800'} transition-colors hover:scale-110`}
                           >
                             {expandedActionSteps[chart.id] ? '▼' : '▶'}
                           </button>
@@ -555,14 +641,14 @@ function NotionPanel({
                         {expandedActionSteps[chart.id] && (
                           <div className="ml-6 mt-2 space-y-2">
                             {chart.actionSteps.map((step, index) => (
-                              <div key={step.id} className="p-2 bg-emerald-800/30 backdrop-blur-sm rounded-lg border border-emerald-600/50 shadow-md">
-                                <div className="font-medium text-emerald-200 text-xs mb-1">
+                              <div key={step.id} className={`p-2 ${isDarkMode ? 'bg-emerald-800/30 border-emerald-600/50' : 'bg-emerald-100 border-emerald-300'} backdrop-blur-sm rounded-lg border shadow-md`}>
+                                <div className={`font-medium ${isDarkMode ? 'text-emerald-200' : 'text-emerald-800'} text-xs mb-1`}>
                                   Step {index + 1}
                                 </div>
-                                <div className="text-emerald-100 text-xs mb-1">
+                                <div className={`${isDarkMode ? 'text-emerald-100' : 'text-emerald-700'} text-xs mb-1`}>
                                   {step.content}
                                 </div>
-                                <div className="flex items-center gap-3 text-xs text-emerald-300">
+                                <div className={`flex items-center gap-3 text-xs ${isDarkMode ? 'text-emerald-300' : 'text-emerald-600'}`}>
                                   <span>📅 {step.deadline.date.toLocaleDateString('ja-JP')}</span>
                                   <span>👤 {step.responsiblePerson.name}</span>
                                   <span className={`px-1 py-0.5 rounded-lg text-xs ${
@@ -579,10 +665,10 @@ function NotionPanel({
                           </div>
                         )}
                       </div>
-                      <div className="text-orange-300">
+                      <div className={`${isDarkMode ? 'text-orange-300' : 'text-orange-600'}`}>
                         📊 現実: {chart.reality.content.slice(0, 50)}{chart.reality.content.length > 50 ? '...' : ''}
                       </div>
-                      <div className="flex items-center gap-4 text-xs text-slate-400 mt-2 flex-wrap">
+                      <div className={`flex items-center gap-4 text-xs ${theme.textSecondary} mt-2 flex-wrap`}>
                         <span>📅 期日: {chart.goal.deadline.date.toLocaleDateString('ja-JP')}</span>
                         <span>👤 責任者: {chart.goal.responsiblePerson.name}</span>
                         <span className={`px-2 py-1 rounded-lg shadow-md ${
@@ -607,7 +693,13 @@ function NotionPanel({
 }
 
 // MIRO風パネルコンポーネント
-function MiroPanel({ onToggleMaximize, isMaximized, charts }: { onToggleMaximize: () => void, isMaximized: boolean, charts: TensionStructureChart[] }) {
+function MiroPanel({ onToggleMaximize, isMaximized, charts, isDarkMode, theme }: { 
+  onToggleMaximize: () => void, 
+  isMaximized: boolean, 
+  charts: TensionStructureChart[],
+  isDarkMode: boolean,
+  theme: any
+}) {
   const [zoom, setZoom] = useState(1)
   const [panX, setPanX] = useState(0)
   const [panY, setPanY] = useState(0)
@@ -627,25 +719,25 @@ function MiroPanel({ onToggleMaximize, isMaximized, charts }: { onToggleMaximize
   }
 
   return (
-    <div className="h-full bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-600 flex flex-col overflow-hidden shadow-2xl backdrop-blur-sm">
-      <div className="flex items-center justify-between p-3 border-b border-slate-600 bg-gradient-to-r from-emerald-600 to-emerald-700 flex-shrink-0 shadow-lg">
+    <div className={`h-full ${theme.panelBg} border flex flex-col overflow-hidden shadow-2xl backdrop-blur-sm`}>
+      <div className={`flex items-center justify-between p-3 border-b ${isDarkMode ? 'border-slate-600 bg-gradient-to-r from-emerald-600 to-emerald-700' : 'border-gray-200 bg-gradient-to-r from-emerald-500 to-emerald-600'} flex-shrink-0 shadow-lg`}>
         <h2 className="font-semibold text-white drop-shadow-sm">🎨 MIRO風キャンバス</h2>
         <div className="flex items-center gap-2">
           {/* ズームコントロール */}
-          <div className="flex items-center gap-1 bg-slate-700/80 backdrop-blur-sm rounded-lg border border-slate-500 shadow-lg">
+          <div className={`flex items-center gap-1 ${isDarkMode ? 'bg-slate-700/80 border-slate-500' : 'bg-white/80 border-gray-300'} backdrop-blur-sm rounded-lg border shadow-lg`}>
             <button
               onClick={handleZoomOut}
-              className="p-1 hover:bg-slate-600 transition-all duration-200 text-sm font-bold text-white hover:scale-110"
+              className={`p-1 ${isDarkMode ? 'hover:bg-slate-600 text-white' : 'hover:bg-gray-200 text-gray-700'} transition-all duration-200 text-sm font-bold hover:scale-110`}
               title="ズームアウト"
             >
               −
             </button>
-            <span className="px-2 text-xs text-slate-200 min-w-12 text-center font-mono">
+            <span className={`px-2 text-xs ${isDarkMode ? 'text-slate-200' : 'text-gray-600'} min-w-12 text-center font-mono`}>
               {Math.round(zoom * 100)}%
             </span>
             <button
               onClick={handleZoomIn}
-              className="p-1 hover:bg-slate-600 transition-all duration-200 text-sm font-bold text-white hover:scale-110"
+              className={`p-1 ${isDarkMode ? 'hover:bg-slate-600 text-white' : 'hover:bg-gray-200 text-gray-700'} transition-all duration-200 text-sm font-bold hover:scale-110`}
               title="ズームイン"
             >
               ＋
@@ -653,7 +745,7 @@ function MiroPanel({ onToggleMaximize, isMaximized, charts }: { onToggleMaximize
           </div>
           <button
             onClick={handleResetView}
-            className="px-2 py-1 text-xs bg-slate-600 text-white rounded-lg hover:bg-slate-500 transition-all duration-200 whitespace-nowrap shadow-md hover:shadow-lg hover:scale-105"
+            className={`px-2 py-1 text-xs ${isDarkMode ? 'bg-slate-600 hover:bg-slate-500' : 'bg-gray-500 hover:bg-gray-600'} text-white rounded-lg transition-all duration-200 whitespace-nowrap ${theme.buttonActive}`}
             title="リセット"
           >
             Reset
@@ -664,15 +756,15 @@ function MiroPanel({ onToggleMaximize, isMaximized, charts }: { onToggleMaximize
               e.stopPropagation()
               onToggleMaximize()
             }}
-            className="p-1 hover:bg-emerald-500/30 rounded-lg transition-all duration-200 text-lg cursor-pointer hover:scale-110 hover:shadow-lg"
+            className={`p-1 ${isDarkMode ? 'hover:bg-emerald-500/30' : 'hover:bg-emerald-300/50'} rounded-lg transition-all duration-200 text-lg cursor-pointer hover:scale-110 hover:shadow-lg`}
             title={isMaximized ? "最小化" : "最大化"}
           >
             {isMaximized ? '🔽' : '🔼'}
           </button>
         </div>
       </div>
-      <div className="flex-1 p-4 overflow-auto bg-slate-800">
-        <div className={`relative w-full bg-slate-700/30 backdrop-blur-sm rounded-2xl border-2 border-dashed border-slate-500 shadow-inner ${
+      <div className={`flex-1 p-4 overflow-auto ${isDarkMode ? 'bg-slate-800' : 'bg-gray-50'}`}>
+        <div className={`relative w-full ${isDarkMode ? 'bg-slate-700/30 border-slate-500' : 'bg-white border-gray-300'} backdrop-blur-sm rounded-2xl border-2 border-dashed shadow-inner ${
           isMaximized 
             ? 'min-h-screen' 
             : charts.length > 0 
@@ -686,12 +778,12 @@ function MiroPanel({ onToggleMaximize, isMaximized, charts }: { onToggleMaximize
               : '384px'
         }}>
           {charts.length === 0 ? (
-            <div className={`flex items-center justify-center text-slate-400 ${
+            <div className={`flex items-center justify-center ${theme.textSecondary} ${
               isMaximized ? 'h-screen' : 'h-96'
             }`}>
-              <div className="text-center bg-slate-800/50 backdrop-blur-sm p-8 rounded-2xl border border-slate-600 shadow-2xl">
+              <div className={`text-center ${theme.emptyBg} backdrop-blur-sm p-8 rounded-2xl border shadow-2xl`}>
                 <div className="text-6xl mb-4">🎨</div>
-                <p className="text-slate-200">create your first chart to see it here</p>
+                <p className={`${theme.textPrimary}`}>create your first chart to see it here</p>
               </div>
             </div>
           ) : (
@@ -792,10 +884,15 @@ function MiroPanel({ onToggleMaximize, isMaximized, charts }: { onToggleMaximize
 }
 
 // AIチャットパネルコンポーネント - 縦スクロール対応に最適化
-function AIChatPanel({ onToggleMaximize, isMaximized }: { onToggleMaximize: () => void, isMaximized: boolean }) {
+function AIChatPanel({ onToggleMaximize, isMaximized, isDarkMode, theme }: { 
+  onToggleMaximize: () => void, 
+  isMaximized: boolean,
+  isDarkMode: boolean,
+  theme: any
+}) {
   return (
-    <div className="h-full bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-600 flex flex-col overflow-hidden shadow-2xl backdrop-blur-sm">
-      <div className="flex items-center justify-between p-3 border-b border-slate-600 bg-gradient-to-r from-violet-600 to-violet-700 flex-shrink-0 shadow-lg">
+    <div className={`h-full ${theme.panelBg} border flex flex-col overflow-hidden shadow-2xl backdrop-blur-sm`}>
+      <div className={`flex items-center justify-between p-3 border-b ${isDarkMode ? 'border-slate-600 bg-gradient-to-r from-violet-600 to-violet-700' : 'border-gray-200 bg-gradient-to-r from-violet-500 to-violet-600'} flex-shrink-0 shadow-lg`}>
         <h2 className="font-semibold text-white drop-shadow-sm">🤖 AIチャット</h2>
         <button
           onClick={(e) => {
@@ -803,7 +900,7 @@ function AIChatPanel({ onToggleMaximize, isMaximized }: { onToggleMaximize: () =
             e.stopPropagation()
             onToggleMaximize()
           }}
-          className="p-1 hover:bg-violet-500/30 rounded-lg transition-all duration-200 text-lg cursor-pointer hover:scale-110 hover:shadow-lg"
+          className={`p-1 ${isDarkMode ? 'hover:bg-violet-500/30' : 'hover:bg-violet-300/50'} rounded-lg transition-all duration-200 text-lg cursor-pointer hover:scale-110 hover:shadow-lg`}
           title={isMaximized ? "最小化" : "最大化"}
         >
           {isMaximized ? '🔽' : '🔼'}
@@ -814,45 +911,45 @@ function AIChatPanel({ onToggleMaximize, isMaximized }: { onToggleMaximize: () =
         {/* チャット履歴 - 縦並び */}
         <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-0">
           {/* ユーザーメッセージ */}
-          <div className="bg-blue-500/20 backdrop-blur-sm rounded-xl p-3 ml-4 border border-blue-400/50 shadow-lg">
+          <div className={`${isDarkMode ? 'bg-blue-500/20 border-blue-400/50' : 'bg-blue-100 border-blue-300'} backdrop-blur-sm rounded-xl p-3 ml-4 border shadow-lg`}>
             <div className="flex items-start gap-2 mb-2">
               <div className="w-6 h-6 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-md">
                 You
               </div>
-              <span className="text-xs text-slate-400">17:15</span>
+              <span className={`text-xs ${theme.textSecondary}`}>17:15</span>
             </div>
-            <p className="text-sm text-blue-100">
+            <p className={`text-sm ${isDarkMode ? 'text-blue-100' : 'text-blue-800'}`}>
               素晴らしい！惜しいのは上のボタンでキャンバスを消した時にAIチャットが見えなくなっていることだね。
             </p>
           </div>
           
           {/* AI回答 */}
-          <div className="bg-emerald-500/20 backdrop-blur-sm rounded-xl p-3 mr-4 border border-emerald-400/50 shadow-lg">
+          <div className={`${isDarkMode ? 'bg-emerald-500/20 border-emerald-400/50' : 'bg-emerald-100 border-emerald-300'} backdrop-blur-sm rounded-xl p-3 mr-4 border shadow-lg`}>
             <div className="flex items-start gap-2 mb-2">
               <div className="w-6 h-6 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-md">
                 AI
               </div>
-              <span className="text-xs text-slate-400">完全修正</span>
+              <span className={`text-xs ${theme.textSecondary}`}>完全修正</span>
             </div>
-            <p className="text-sm text-emerald-100 font-medium">
+            <p className={`text-sm ${isDarkMode ? 'text-emerald-100' : 'text-emerald-800'} font-medium`}>
               🎯 完全修正！全てのパネル表示パターンに対応しました。Notion+AI、MIRO+AI、全組み合わせで適切に境界線とリサイズが動作します。ヘッダーで現在のパターンも表示しています。
             </p>
           </div>
         </div>
         
         {/* 入力エリア */}
-        <div className="p-3 border-t border-slate-600 bg-slate-800/50 backdrop-blur-sm flex-shrink-0">
+        <div className={`p-3 border-t ${isDarkMode ? 'border-slate-600 bg-slate-800/50' : 'border-gray-200 bg-gray-100'} backdrop-blur-sm flex-shrink-0`}>
           <div className="flex gap-2">
             <input
               type="text"
               placeholder="メッセージを入力..."
-              className="flex-1 px-3 py-2 border border-slate-500 bg-slate-700/50 backdrop-blur-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-400 text-sm min-w-0 text-white placeholder-slate-400"
+              className={`flex-1 px-3 py-2 border ${isDarkMode ? 'border-slate-500 bg-slate-700/50 text-white placeholder-slate-400' : 'border-gray-300 bg-white text-gray-800 placeholder-gray-500'} backdrop-blur-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-400 text-sm min-w-0`}
             />
-            <button className="px-4 py-2 bg-gradient-to-r from-violet-500 to-violet-600 text-white rounded-lg hover:from-violet-400 hover:to-violet-500 transition-all duration-200 text-sm whitespace-nowrap shadow-md hover:shadow-lg hover:scale-105">
+            <button className={`px-4 py-2 bg-gradient-to-r from-violet-500 to-violet-600 text-white rounded-lg hover:from-violet-400 hover:to-violet-500 transition-all duration-200 text-sm whitespace-nowrap ${theme.buttonActive}`}>
               送信
             </button>
           </div>
-          <div className="flex justify-between items-center mt-2 text-xs text-slate-400">
+          <div className={`flex justify-between items-center mt-2 text-xs ${theme.textSecondary}`}>
             <span>💡 全パターン対応</span>
             <span>✅ Phase 1完了</span>
           </div>
