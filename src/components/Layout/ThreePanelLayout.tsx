@@ -264,7 +264,7 @@ export default function ThreePanelLayout() {
   }
 
   // テーマに応じたスタイル関数
-  const getThemeClasses = () => {
+  const getThemeClasses = (): ThemeClasses => {
     if (isDarkMode) {
       return {
         mainBg: 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900',
@@ -523,6 +523,19 @@ export default function ThreePanelLayout() {
 // (NotionPanel, MiroPanel, AIChatPanel)
 
 // Notion風パネルコンポーネント
+interface ThemeClasses {
+  mainBg: string
+  headerBg: string
+  headerText: string
+  panelBg: string
+  buttonActive: string
+  textPrimary: string
+  textSecondary: string
+  textInfo: string
+  boundary: string
+  emptyBg: string
+}
+
 interface NotionPanelProps {
   onToggleMaximize: () => void
   isMaximized: boolean
@@ -531,11 +544,17 @@ interface NotionPanelProps {
   editingChart: TensionStructureChart | null
   onNewChart: () => void
   onEditChart: (chart: TensionStructureChart) => void
-  ChartEditor: any
+  ChartEditor: React.ComponentType<{
+    chart?: TensionStructureChart | null
+    onSave?: (chart: TensionStructureChart) => void
+    onCancel?: () => void
+    isMaximized?: boolean
+    isDarkMode?: boolean
+  }>
   onSaveChart: (chart: TensionStructureChart) => void
   onCancelEditor: () => void
   isDarkMode: boolean
-  theme: any
+  theme: ThemeClasses
 }
 
 function NotionPanel({ 
@@ -698,7 +717,7 @@ function MiroPanel({ onToggleMaximize, isMaximized, charts, isDarkMode, theme }:
   isMaximized: boolean, 
   charts: TensionStructureChart[],
   isDarkMode: boolean,
-  theme: any
+  theme: ThemeClasses
 }) {
   const [zoom, setZoom] = useState(1)
   const [panX, setPanX] = useState(0)
@@ -888,7 +907,7 @@ function AIChatPanel({ onToggleMaximize, isMaximized, isDarkMode, theme }: {
   onToggleMaximize: () => void, 
   isMaximized: boolean,
   isDarkMode: boolean,
-  theme: any
+  theme: ThemeClasses
 }) {
   return (
     <div className={`h-full ${theme.panelBg} border flex flex-col overflow-hidden shadow-2xl backdrop-blur-sm`}>

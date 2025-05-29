@@ -33,8 +33,8 @@ export interface ChangeRecord {
   timestamp: Date
   changedBy: string // ユーザーID or システム
   changeType: 'created' | 'updated' | 'deleted' | 'status_changed'
-  previousValue?: any
-  newValue?: any
+  previousValue?: string | number | boolean | object
+  newValue?: string | number | boolean | object
   notes?: string
 }
 

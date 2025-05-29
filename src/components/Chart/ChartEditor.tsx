@@ -2,14 +2,24 @@
 
 import { useState } from 'react'
 import { Plus, Calendar, User, Save, X } from 'lucide-react'
-import type { TensionStructureChart, CreativeGoal, CurrentReality, ActionStep, ResponsiblePerson, Deadline } from '@/types'
+import type { TensionStructureChart, ActionStep } from '@/types'
 
 interface ChartEditorProps {
-  chart?: TensionStructureChart
+  chart?: TensionStructureChart | null
   onSave?: (chart: TensionStructureChart) => void
   onCancel?: () => void
   isMaximized?: boolean
   isDarkMode?: boolean
+}
+
+interface ThemeClasses {
+  mainBg: string
+  textPrimary: string
+  textSecondary: string
+  textMuted: string
+  inputBg: string
+  sectionBg: string
+  previewBg: string
 }
 
 export default function ChartEditor({ chart, onSave, onCancel, isMaximized = false, isDarkMode = true }: ChartEditorProps) {
@@ -67,7 +77,7 @@ export default function ChartEditor({ chart, onSave, onCancel, isMaximized = fal
   }
 
   // アクションステップを更新
-  const updateActionStep = (index: number, field: string, value: any) => {
+  const updateActionStep = (index: number, field: string, value: string | Date) => {
     const updated = [...actionSteps]
     if (field === 'deadline') {
       // 日付のバリデーション
@@ -88,7 +98,7 @@ export default function ChartEditor({ chart, onSave, onCancel, isMaximized = fal
     } else if (field === 'responsible') {
       updated[index] = {
         ...updated[index],
-        responsiblePerson: { id: value, name: value }
+        responsiblePerson: { id: value as string, name: value as string }
       }
     } else {
       updated[index] = {
@@ -100,7 +110,7 @@ export default function ChartEditor({ chart, onSave, onCancel, isMaximized = fal
   }
 
   // テーマに応じたスタイル関数
-  const getThemeClasses = () => {
+  const getThemeClasses = (): ThemeClasses => {
     if (isDarkMode) {
       return {
         mainBg: 'bg-gradient-to-br from-slate-800 to-slate-900',
